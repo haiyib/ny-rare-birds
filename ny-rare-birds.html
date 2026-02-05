@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NY Rare Bird Alert</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            min-height: 100vh;
+        }
+        .header {
+            background: #fff;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            position: relative;
+            z-index: 100;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+        .logo h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .logo span {
+            font-size: 0.75rem;
+            color: #64748b;
+            font-weight: 500;
+        }
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        .controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            font-family: inherit;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .btn-refresh {
+            background: #f1f5f9;
+            color: #475569;
+        }
+        .btn-refresh:hover {
+            background: #e2e8f0;
+        }
+        .btn-sound {
+            background: #ecfdf5;
+            color: #059669;
+        }
+        .btn-sound:hover {
+            background: #d1fae5;
+        }
+        .btn-sound.muted {
+            background: #f1f5f9;
+            color: #94a3b8;
+        }
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: #f0fdf4;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            color: #16a34a;
+            font-weight: 500;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(0.9); }
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            height: calc(100vh - 73px);
+        }
+        #map {
+            height: 100%;
+        }
+        .leaflet-container {
+            background: #e2e8f0;
+        }
+        .sidebar {
+            background: #fff;
+            overflow-y: auto;
+            border-left: 1px solid #e2e8f0;
+        }
+        .sidebar-header {
+            padding: 1.25rem 1.5rem;
+            background: #fff;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .sidebar-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.25rem;
+        }
+        .sidebar-header h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        .bird-count {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #fff;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .sidebar-subtitle {
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+        .bird-list {
+            padding: 1rem;
+        }
+        .bird-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .bird-card:hover {
+            border-color: #10b981;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);
+            transform: translateY(-1px);
+        }
+        .bird-card.new {
+            border-color: #10b981;
+            background: linear-gradient(135deg, #f0fdf4 0%, #fff 100%);
+        }
+        .bird-card.new::before {
+            content: 'NEW';
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background: #10b981;
+            color: #fff;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
+        }
+        .bird-name {
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+            padding-right: 3rem;
+        }
+        .bird-location {
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.4rem;
+            line-height: 1.4;
+        }
+        .bird-location svg {
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .bird-meta {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            display: flex;
+            gap: 1rem;
+        }
+        .bird-meta span {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .setup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .setup-box {
+            background: #fff;
+            padding: 2.5rem;
+            border-radius: 20px;
+            max-width: 480px;
+            width: 90%;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+        }
+        .setup-box h2 {
+            color: #0f172a;
+            margin-bottom: 0.5rem;
+            font-size: 1.5rem;
+        }
+        .setup-box .subtitle {
+            color: #64748b;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+        .setup-steps {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+        .setup-steps ol {
+            margin-left: 1.25rem;
+            color: #475569;
+            font-size: 0.9rem;
+            line-height: 1.8;
+        }
+        .setup-steps a {
+            color: #10b981;
+            font-weight: 500;
+        }
+        .setup-box input {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            background: #fff;
+            color: #0f172a;
+            font-size: 1rem;
+            font-family: inherit;
+            margin-bottom: 1rem;
+            transition: border-color 0.15s;
+        }
+        .setup-box input:focus {
+            outline: none;
+            border-color: #10b981;
+        }
+        .setup-box button {
+            width: 100%;
+            padding: 0.875rem;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .setup-box button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        .error-msg {
+            background: #fef2f2;
+            color: #dc2626;
+            padding: 1rem;
+            margin: 0 1rem 1rem;
+            border-radius: 10px;
+            font-size: 0.875rem;
+            display: none;
+            border: 1px solid #fecaca;
+        }
+        .loading {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: #94a3b8;
+        }
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #10b981;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .empty-state {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: #94a3b8;
+        }
+        .empty-state svg {
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+        @media (max-width: 900px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: 45vh 1fr;
+            }
+            .sidebar {
+                border-left: none;
+                border-top: 1px solid #e2e8f0;
+            }
+            .header {
+                padding: 1rem;
+            }
+            .logo h1 {
+                font-size: 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">
+            <div class="logo-icon">
+                <svg width="24" height="24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                    <path d="M12 19c-4-1-7-4-7-8a7 7 0 0 1 14 0c0 4-3 7-7 8"/>
+                    <circle cx="12" cy="10" r="3"/>
+                </svg>
+            </div>
+            <div>
+                <h1>NY Rare Birds</h1>
+                <span>eBird Alert Dashboard</span>
+            </div>
+        </div>
+        <div class="status">
+            <div class="controls">
+                <button class="btn btn-refresh" onclick="refreshData()">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M23 4v6h-6M1 20v-6h6"/>
+                        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                    </svg>
+                    Refresh
+                </button>
+                <button class="btn btn-sound" id="soundBtn" onclick="toggleSound()">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" id="soundIcon">
+                        <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+                        <path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/>
+                    </svg>
+                    <span id="soundText">Sound</span>
+                </button>
+            </div>
+            <div class="status-pill">
+                <div class="status-dot"></div>
+                <span id="lastUpdate">Connecting...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div id="map"></div>
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">
+                    <h2>Rare Sightings</h2>
+                    <span class="bird-count" id="birdCount">0</span>
+                </div>
+                <div class="sidebar-subtitle">Last 7 days in New York</div>
+            </div>
+            <div class="error-msg" id="errorMsg"></div>
+            <div class="bird-list" id="birdList">
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    Loading sightings...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="setup-overlay" id="setupOverlay" style="display: none;">
+        <div class="setup-box">
+            <h2>Welcome!</h2>
+            <p class="subtitle">Connect your eBird account to get started.</p>
+            <div class="setup-steps">
+                <ol>
+                    <li>Visit <a href="https://ebird.org/api/keygen" target="_blank">ebird.org/api/keygen</a></li>
+                    <li>Log in or create a free account</li>
+                    <li>Copy your API key and paste below</li>
+                </ol>
+            </div>
+            <input type="text" id="apiKeyInput" placeholder="Paste your eBird API key">
+            <button onclick="saveApiKey()">Start Tracking</button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const REGION_CODE = 'US-NY';
+        const UPDATE_INTERVAL = 15 * 60 * 1000;
+        const DAYS_BACK = 7;
+
+        let map;
+        let markers = [];
+        let seenSightings = new Set(JSON.parse(localStorage.getItem('seenSightings') || '[]'));
+        let soundEnabled = localStorage.getItem('soundEnabled') !== 'false';
+        let apiKey = localStorage.getItem('ebirdApiKey') || 'bkk1u631rnos';
+        let updateTimer;
+        let audioContext;
+
+        function playNotificationSound() {
+            if (!soundEnabled) return;
+            try {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                // Pleasant two-tone chime
+                [0, 150].forEach((delay, i) => {
+                    setTimeout(() => {
+                        const osc = audioContext.createOscillator();
+                        const gain = audioContext.createGain();
+                        osc.connect(gain);
+                        gain.connect(audioContext.destination);
+                        osc.frequency.setValueAtTime(i === 0 ? 880 : 1100, audioContext.currentTime);
+                        gain.gain.setValueAtTime(0.15, audioContext.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                        osc.start(audioContext.currentTime);
+                        osc.stop(audioContext.currentTime + 0.3);
+                    }, delay);
+                });
+            } catch (e) {
+                console.log('Sound failed:', e);
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            localStorage.setItem('soundEnabled', soundEnabled);
+            updateSoundButton();
+            if (soundEnabled) playNotificationSound();
+        }
+
+        function updateSoundButton() {
+            const btn = document.getElementById('soundBtn');
+            const icon = document.getElementById('soundIcon');
+            btn.classList.toggle('muted', !soundEnabled);
+            icon.innerHTML = soundEnabled
+                ? '<path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/>'
+                : '<path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>';
+        }
+
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView([42.9, -75.5], 7);
+
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+            // Clean, modern map style
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(map);
+        }
+
+        function clearMarkers() {
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+        }
+
+        function addMarker(sighting, isNew) {
+            const color = isNew ? '#10b981' : '#6366f1';
+            const size = isNew ? 14 : 10;
+
+            const icon = L.divIcon({
+                className: 'custom-marker',
+                html: `<div style="
+                    width: ${size}px;
+                    height: ${size}px;
+                    background: ${color};
+                    border-radius: 50%;
+                    border: 2px solid #fff;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                "></div>`,
+                iconSize: [size, size],
+                iconAnchor: [size/2, size/2]
+            });
+
+            const marker = L.marker([sighting.lat, sighting.lng], { icon })
+                .bindPopup(`
+                    <div style="font-family: Inter, sans-serif; min-width: 180px;">
+                        <div style="font-weight: 600; margin-bottom: 4px;">${sighting.comName}</div>
+                        <div style="color: #64748b; font-size: 13px; margin-bottom: 4px;">${sighting.locName}</div>
+                        <div style="color: #94a3b8; font-size: 12px;">${formatDate(sighting.obsDt)} · ${sighting.howMany || 1} bird${(sighting.howMany || 1) > 1 ? 's' : ''}</div>
+                    </div>
+                `, { closeButton: false })
+                .addTo(map);
+
+            markers.push(marker);
+            return marker;
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+
+            if (diffDays === 0) return 'Today';
+            if (diffDays === 1) return 'Yesterday';
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+
+        async function fetchRareBirds() {
+            if (!apiKey) {
+                document.getElementById('setupOverlay').style.display = 'flex';
+                return [];
+            }
+
+            try {
+                const response = await fetch(
+                    `https://api.ebird.org/v2/data/obs/${REGION_CODE}/recent/notable?back=${DAYS_BACK}`,
+                    { headers: { 'X-eBirdApiToken': apiKey } }
+                );
+
+                if (!response.ok) {
+                    if (response.status === 403) {
+                        throw new Error('Invalid API key. Please check your eBird API key.');
+                    }
+                    throw new Error(`API error: ${response.status}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error('Fetch error:', error);
+                showError(error.message);
+                return [];
+            }
+        }
+
+        function showError(msg) {
+            const errorEl = document.getElementById('errorMsg');
+            errorEl.textContent = msg;
+            errorEl.style.display = 'block';
+            setTimeout(() => { errorEl.style.display = 'none'; }, 5000);
+        }
+
+        function createSightingId(s) {
+            return `${s.speciesCode}-${s.locId}-${s.obsDt}`;
+        }
+
+        async function refreshData() {
+            const sightings = await fetchRareBirds();
+
+            if (sightings.length === 0) {
+                document.getElementById('birdList').innerHTML = `
+                    <div class="empty-state">
+                        <svg width="48" height="48" fill="none" stroke="#94a3b8" stroke-width="1.5" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M8 15s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/>
+                        </svg>
+                        <p>No rare sightings found</p>
+                    </div>`;
+                return;
+            }
+
+            let newCount = 0;
+            const newSightingIds = [];
+
+            sightings.forEach(s => {
+                const id = createSightingId(s);
+                if (!seenSightings.has(id)) {
+                    newCount++;
+                    newSightingIds.push(id);
+                }
+            });
+
+            if (newCount > 0) {
+                playNotificationSound();
+                newSightingIds.forEach(id => seenSightings.add(id));
+                localStorage.setItem('seenSightings', JSON.stringify([...seenSightings]));
+            }
+
+            clearMarkers();
+
+            const birdList = document.getElementById('birdList');
+            birdList.innerHTML = '';
+
+            // Sort by date (most recent first)
+            sightings.sort((a, b) => new Date(b.obsDt) - new Date(a.obsDt));
+
+            sightings.forEach(s => {
+                const id = createSightingId(s);
+                const isNew = newSightingIds.includes(id);
+                const marker = addMarker(s, isNew);
+
+                const card = document.createElement('div');
+                card.className = 'bird-card' + (isNew ? ' new' : '');
+                card.innerHTML = `
+                    <div class="bird-name">${s.comName}</div>
+                    <div class="bird-location">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
+                            <circle cx="12" cy="10" r="3"/>
+                        </svg>
+                        ${s.locName}
+                    </div>
+                    <div class="bird-meta">
+                        <span>
+                            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                                <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+                                <line x1="3" y1="10" x2="21" y2="10"/>
+                            </svg>
+                            ${formatDate(s.obsDt)}
+                        </span>
+                        <span>
+                            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/>
+                                <path d="M12 6v6l4 2"/>
+                            </svg>
+                            ${s.obsDt.split(' ')[1] || ''}
+                        </span>
+                        <span>${s.howMany || 1} bird${(s.howMany || 1) > 1 ? 's' : ''}</span>
+                    </div>
+                `;
+                card.onclick = () => {
+                    map.setView([s.lat, s.lng], 13);
+                    marker.openPopup();
+                };
+                birdList.appendChild(card);
+            });
+
+            document.getElementById('birdCount').textContent = sightings.length;
+            document.getElementById('lastUpdate').textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        }
+
+        function saveApiKey() {
+            const key = document.getElementById('apiKeyInput').value.trim();
+            if (key) {
+                apiKey = key;
+                localStorage.setItem('ebirdApiKey', key);
+                document.getElementById('setupOverlay').style.display = 'none';
+                refreshData();
+            }
+        }
+
+        function init() {
+            initMap();
+            updateSoundButton();
+
+            if (!apiKey) {
+                document.getElementById('setupOverlay').style.display = 'flex';
+            } else {
+                refreshData();
+            }
+
+            updateTimer = setInterval(refreshData, UPDATE_INTERVAL);
+        }
+
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
